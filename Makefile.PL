@@ -4,6 +4,13 @@ name 'Plack-App-PgREST';
 all_from 'lib/Plack/App/PgREST.pm';
 readme_from 'lib/Plack/App/PgREST.pm';
 build_requires 'Test::More' => 0.88;
+
+requires 'methods';
+requires 'Router::Resource';
+requires 'Plack';
+requires 'JSON::XS';
+requires 'DBIx::Connector';
+
 auto_include_deps;
 extra_tests;
 auto_set_repository;
