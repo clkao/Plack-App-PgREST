@@ -1,5 +1,4 @@
 package Plack::App::PgREST;
-use 5.12.1;
 use methods;
 use 5.008_001;
 our $VERSION = '0.01';
