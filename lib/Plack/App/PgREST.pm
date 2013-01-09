@@ -8,6 +8,7 @@ use parent qw(Plack::Component);
 use Plack::Util::Accessor qw( dsn dbh );
 use Plack::Request;
 use JSON qw(encode_json);
+use IPC::Run3 qw(run3);
 
 method select($req, $args) {
     use Data::Dumper;
@@ -17,22 +18,30 @@ method select($req, $args) {
     return [200, ['Content-Type', 'application/json'], [$ary_ref->[0][0]]];
 }
 
-method _mk_func($name, $param, $ret, $body, $lang) {
+method _mk_func($name, $param, $ret, $body, $lang, $dont_compile) {
     my (@params, @args);
     $lang ||= 'plv8';
-
     while( my ($name, $type) = splice(@$param, 0, 2) ) {
         push @params, "$name $type";
         push @args, $name;
     }
 
+    my $compiled = '';
+    if ($lang eq 'plls' && !$dont_compile) {
+        $lang = 'plv8';
+
+        run3 'lsc -bc', \$body, \$compiled or die;
+        $compiled =~ s/;$//;
+    }
+
+    $compiled ||= $body;
     qq{CREATE OR REPLACE FUNCTION $name (@{[ join(',', @params) ]}) RETURNS $ret AS \$\$
-return ($body)(@{[ join(',', @args) ]});
-\$\$ LANGUAGE plls IMMUTABLE STRICT;}
+return ($compiled)(@{[ join(',', @args) ]});
+\$\$ LANGUAGE $lang IMMUTABLE STRICT;}
 }
 
 method bootstrap {
-    $self->{dbh}->do($self->_mk_func("postgrest_select", [req => "json"], "json", << 'END'));
+    $self->{dbh}->do($self->_mk_func("postgrest_select", [req => "json"], "json", << 'END', 'plls'));
 ({collection, l = 30, sk = 0, q, c}) ->
     query = "select * from #collection"
     [{count}] = plv8.execute "select count(*) from (#query) cnt"
