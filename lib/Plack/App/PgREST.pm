@@ -27,7 +27,12 @@ method _mk_func($name, $param, $ret, $body, $lang, $dont_compile) {
     $lang ||= 'plv8';
     while( my ($name, $type) = splice(@$param, 0, 2) ) {
         push @params, "$name $type";
-        push @args, $name;
+        if ($type eq 'pgrest_json') {
+            push @args, "JSON.parse($name)"
+        }
+        else {
+            push @args, $name;
+        }
     }
 
     my $compiled = '';
@@ -37,12 +42,14 @@ method _mk_func($name, $param, $ret, $body, $lang, $dont_compile) {
         run3 'lsc -bc', \$body, \$compiled or
 	    run3 'st-livescript -bc', \$body, \$compiled or die;
         $compiled =~ s/;$//;
+#        my $z = $self->{dbh}->selectall_arrayref("select jseval(?)", {}, "LiveScript.compile()->[0][0]
     }
 
     $compiled ||= $body;
-    $body = ($self->{pg_version} lt '9.2.0')
-        ? "JSON.stringify(($compiled)(@{[ join(',', map { qq!JSON.parse($_)! } @args) ]}));"
-        : "($compiled)(@{[ join(',', @args) ]})";
+    $body = "JSON.stringify(($compiled)(@{[ join(',', @args) ]}));";
+#    $body = ($self->{pg_version} lt '9.2.0')
+#        ? "JSON.stringify(($compiled)(@{[ join(',', map { qq!JSON.parse($_)! } @args) ]}));"
+#        : "($compiled)(@{[ join(',', @args) ]})";
     my $ret = qq{CREATE OR REPLACE FUNCTION $name (@{[ join(',', @params) ]}) RETURNS $ret AS \$\$
 return $body
 \$\$ LANGUAGE $lang IMMUTABLE STRICT;};
@@ -89,12 +96,25 @@ EOF
     $self->{dbh}->do($self->_mk_func("jseval", [str => "text"], "text", << 'END', 'plls'));
 (str) -> eval str
 END
+
+    $self->{dbh}->do($self->_mk_func("jsapply", [str => "text", "args" => "pgrest_json"], "pgrest_json", << 'END', 'plls'));
+(func, args) ->
+    plv8.elog WARNING, args.0
+    eval(func) ...args
+END
+
+    $self->{dbh}->do($self->_mk_func("jsevalit", [str => "text"], "text", << 'END', 'plls'));
+(str) ->
+    ``jsid = jsid || 0; ++jsid;``
+    eval "jsid#jsid = " + str; "jsid#jsid"
+END
+
     my $ls = do { local $/; open my $fh, '<', 'livescript.js'; <$fh> };
     warn length $ls;
     $ls =~ s/\$\$/\\\$\\\$/g;
     warn length $ls;
     $self->{dbh}->do($self->_mk_func("lsbootstrap", [], "pgrest_json", << "END", 'plv8'));
-function() { LiveScript = $ls }
+function() { jsid = 0; LiveScript = $ls }
 END
     $self->{dbh}->do($self->_mk_func("postgrest_select", [req => "pgrest_json"], "pgrest_json", << 'END', 'plls'));
 ({collection, l = 30, sk = 0, q, c, q, fo}) ->
