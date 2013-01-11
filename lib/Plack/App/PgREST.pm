@@ -67,16 +67,23 @@ EOF
     
     if ($self->{pg_version} lt '9.2.0') {
         $self->{dbh}->do(<<'EOF');
-CREATE OR REPLACE FUNCTION json_syntax_check(src text) RETURNS boolean AS $$
-try { JSON.parse(src); return true; } catch (e) { return false; }
-$$ LANGUAGE plv8 IMMUTABLE;
+DO $$ BEGIN
+    CREATE FUNCTION json_syntax_check(src text) RETURNS boolean AS '
+        try { JSON.parse(src); return true; } catch (e) { return false; }
+    ' LANGUAGE plv8 IMMUTABLE;
+EXCEPTION WHEN OTHERS THEN END; $$;
 
-DROP DOMAIN IF EXISTS pgrest_json;
-CREATE DOMAIN pgrest_json AS text CHECK ( json_syntax_check(VALUE) );
+DO $$ BEGIN
+    CREATE DOMAIN pgrest_json AS text CHECK ( json_syntax_check(VALUE) );
+EXCEPTION WHEN OTHERS THEN END; $$;
 EOF
     }
     else {
-        $self->{dbh}->do("CREATE DOMAIN pgrest_json AS json;");
+        $self->{dbh}->do(<<'EOF');
+DO $$ BEGIN
+    CREATE DOMAIN pgrest_json AS json;
+EXCEPTION WHEN OTHERS THEN END; $$;
+EOF
     }
 
     $self->{dbh}->do($self->_mk_func("jseval", [str => "text"], "text", << 'END', 'plls'));
