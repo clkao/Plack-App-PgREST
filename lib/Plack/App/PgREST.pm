@@ -5,15 +5,19 @@ our $VERSION = '0.01';
 use Plack::Builder;
 use Router::Resource;
 use parent qw(Plack::Component);
-use Plack::Util::Accessor qw( dsn dbh );
+use Plack::Util::Accessor qw( dsn dbh pg_version );
 use Plack::Request;
 use JSON qw(encode_json);
 use IPC::Run3 qw(run3);
 
-method select($req, $args) {
+method select($param, $args) {
     use Data::Dumper;
-    my $req = encode_json({collection => $args->{collection}, l => scalar $req->param('l'), sk => scalar $req->param('sk'), c => scalar $req->param('c')});
-    warn $req;
+    my $req = encode_json({
+        collection => $args->{collection},
+        l => $param->get('l'),
+        sk => $param->get('sk'),
+        c => $param->get('c'),
+    });
     my $ary_ref = $self->{dbh}->selectall_arrayref("select postgrest_select(?)", {}, $req);
     return [200, ['Content-Type', 'application/json'], [$ary_ref->[0][0]]];
 }
@@ -36,21 +40,64 @@ method _mk_func($name, $param, $ret, $body, $lang, $dont_compile) {
     }
 
     $compiled ||= $body;
-    qq{CREATE OR REPLACE FUNCTION $name (@{[ join(',', @params) ]}) RETURNS $ret AS \$\$
-return JSON.stringify(($compiled)(@{[ join(',', map { "JSON.parse($_)" } @args) ]}));
-\$\$ LANGUAGE $lang IMMUTABLE STRICT;}
+    $body = ($self->{pg_version} lt '9.2.0')
+        ? "JSON.stringify(($compiled)(@{[ join(',', map { qq!JSON.parse($_)! } @args) ]}));"
+        : "($compiled)(@{[ join(',', @args) ]})";
+    my $ret = qq{CREATE OR REPLACE FUNCTION $name (@{[ join(',', @params) ]}) RETURNS $ret AS \$\$
+return $body
+\$\$ LANGUAGE $lang IMMUTABLE STRICT;};
+    warn $ret;
+    $ret;
 }
 
 method bootstrap {
-    $self->{dbh}->do($self->_mk_func("postgrest_select", [req => "text"], "text", << 'END', 'plls'));
-({collection, l = 30, sk = 0, q, c}) ->
+
+    ($self->{pg_version}) = $self->{dbh}->selectall_arrayref("select version()")->[0][0] =~ m/PostgreSQL ([\d\.]+)/;
+    if ($self->{pg_version} ge '9.1.0') {
+        $self->{dbh}->do(<<'EOF');
+create extension if not exists plv8;
+create extension if not exists plls;
+EOF
+    }
+    else {
+        # bootstrap with sql
+        
+    }
+    
+    
+    if ($self->{pg_version} lt '9.2.0') {
+        $self->{dbh}->do(<<'EOF');
+CREATE OR REPLACE FUNCTION json_syntax_check(src text) RETURNS boolean AS $$
+try { JSON.parse(src); return true; } catch (e) { return false; }
+$$ LANGUAGE plv8 IMMUTABLE;
+
+DROP DOMAIN IF EXISTS json;
+CREATE DOMAIN json AS text CHECK ( json_syntax_check(VALUE) );
+EOF
+    }
+    else {
+
+    }
+
+    $self->{dbh}->do($self->_mk_func("jseval", [str => "text"], "text", << 'END', 'plls'));
+(str) -> eval str
+END
+    my $ls = do { local $/; open my $fh, '<', 'livescript.js'; <$fh> };
+    warn length $ls;
+    $ls =~ s/\$\$/\\\$\\\$/g;
+    warn length $ls;
+    $self->{dbh}->do($self->_mk_func("lsbootstrap", [], "json", << "END", 'plv8'));
+function() { LiveScript = $ls }
+END
+    $self->{dbh}->do($self->_mk_func("postgrest_select", [req => "json"], "json", << 'END', 'plls'));
+({collection, l = 30, sk = 0, q, c, q, fo}) ->
     query = "select * from #collection"
     [{count}] = plv8.execute "select count(*) from (#query) cnt"
     return { count } if c
 
     do
         paging: { count, l, sk }
-        entries: plv8.execute "#query limit $1 offset $2" [l, sk]
+        entries: plv8.execute "#query limit ? offset ?" [l, sk]
 END
 }
 
@@ -69,7 +116,7 @@ method to_app {
     $self->bootstrap;
     my $router = router {
         resource '/collections/{collection}' => sub {
-            GET  { $self->select(Plack::Request->new($_[0]), $_[1]) };
+            GET  { $self->select(Plack::Request->new($_[0])->parameters, $_[1]) };
         };
     };
 
