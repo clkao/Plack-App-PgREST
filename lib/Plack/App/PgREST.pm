@@ -30,18 +30,19 @@ method _mk_func($name, $param, $ret, $body, $lang, $dont_compile) {
     if ($lang eq 'plls' && !$dont_compile) {
         $lang = 'plv8';
 
-        run3 'lsc -bc', \$body, \$compiled or die;
+        run3 'lsc -bc', \$body, \$compiled or
+	    run3 'st-livescript -bc', \$body, \$compiled or die;
         $compiled =~ s/;$//;
     }
 
     $compiled ||= $body;
     qq{CREATE OR REPLACE FUNCTION $name (@{[ join(',', @params) ]}) RETURNS $ret AS \$\$
-return ($compiled)(@{[ join(',', @args) ]});
+return JSON.stringify(($compiled)(@{[ join(',', map { "JSON.parse($_)" } @args) ]}));
 \$\$ LANGUAGE $lang IMMUTABLE STRICT;}
 }
 
 method bootstrap {
-    $self->{dbh}->do($self->_mk_func("postgrest_select", [req => "json"], "json", << 'END', 'plls'));
+    $self->{dbh}->do($self->_mk_func("postgrest_select", [req => "text"], "text", << 'END', 'plls'));
 ({collection, l = 30, sk = 0, q, c}) ->
     query = "select * from #collection"
     [{count}] = plv8.execute "select count(*) from (#query) cnt"
