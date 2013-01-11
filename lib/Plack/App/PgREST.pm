@@ -71,12 +71,12 @@ CREATE OR REPLACE FUNCTION json_syntax_check(src text) RETURNS boolean AS $$
 try { JSON.parse(src); return true; } catch (e) { return false; }
 $$ LANGUAGE plv8 IMMUTABLE;
 
-DROP DOMAIN IF EXISTS json;
-CREATE DOMAIN json AS text CHECK ( json_syntax_check(VALUE) );
+DROP DOMAIN IF EXISTS pgrest_json;
+CREATE DOMAIN pgrest_json AS text CHECK ( json_syntax_check(VALUE) );
 EOF
     }
     else {
-
+        $self->{dbh}->do("CREATE DOMAIN pgrest_json AS json;");
     }
 
     $self->{dbh}->do($self->_mk_func("jseval", [str => "text"], "text", << 'END', 'plls'));
@@ -86,10 +86,10 @@ END
     warn length $ls;
     $ls =~ s/\$\$/\\\$\\\$/g;
     warn length $ls;
-    $self->{dbh}->do($self->_mk_func("lsbootstrap", [], "json", << "END", 'plv8'));
+    $self->{dbh}->do($self->_mk_func("lsbootstrap", [], "pgrest_json", << "END", 'plv8'));
 function() { LiveScript = $ls }
 END
-    $self->{dbh}->do($self->_mk_func("postgrest_select", [req => "json"], "json", << 'END', 'plls'));
+    $self->{dbh}->do($self->_mk_func("postgrest_select", [req => "pgrest_json"], "pgrest_json", << 'END', 'plls'));
 ({collection, l = 30, sk = 0, q, c, q, fo}) ->
     query = "select * from #collection"
     [{count}] = plv8.execute "select count(*) from (#query) cnt"
