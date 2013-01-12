@@ -21,9 +21,13 @@ method select($param, $args) {
     my $ary_ref = $self->{dbh}->selectall_arrayref("select postgrest_select(?)", {}, $req);
     if (my $callback = $param->get('callback')) {
         $callback =~ s/[^\w\[\]\.]//g;
+        my $subkey = '';
+        if (my $entries = $param->get('entries')) {
+            $subkey = '.entries';
+        }
         return [200, ['Content-Type', 'application/javascript'],
             [
-                "($callback)($ary_ref->[0][0]);"
+                "($callback)(($ary_ref->[0][0])$subkey);"
             ]
         ];
     }
