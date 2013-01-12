@@ -10,13 +10,20 @@ use Plack::Request;
 use JSON qw(encode_json);
 use IPC::Run3 qw(run3);
 
+sub n {
+    my $n = shift;
+    return $n unless $n;
+    return undef if $n eq 'NaN';
+    return int($n);
+}
+
 method select($param, $args) {
     use Data::Dumper;
     my $req = encode_json({
         collection => $args->{collection},
-        l => $param->get('l'),
-        sk => $param->get('sk'),
-        c => $param->get('c'),
+        l => n($param->get('l')),
+        sk => n($param->get('sk')),
+        c => n($param->get('c')),
     });
     my $ary_ref = $self->{dbh}->selectall_arrayref("select postgrest_select(?)", {}, $req);
     if (my $callback = $param->get('callback')) {
