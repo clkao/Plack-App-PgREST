@@ -19,6 +19,14 @@ method select($param, $args) {
         c => $param->get('c'),
     });
     my $ary_ref = $self->{dbh}->selectall_arrayref("select postgrest_select(?)", {}, $req);
+    if (my $callback = $param->get('callback')) {
+        $callback =~ s/[^\w\[\]\.]//g;
+        return [200, ['Content-Type', 'application/javascript'],
+            [
+                "($callback)($ary_ref->[0][0]);"
+            ]
+        ];
+    }
     return [200, ['Content-Type', 'application/json'], [$ary_ref->[0][0]]];
 }
 
@@ -60,8 +68,12 @@ method bootstrap {
     ($self->{pg_version}) = $self->{dbh}->selectall_arrayref("select version()")->[0][0] =~ m/PostgreSQL ([\d\.]+)/;
     if ($self->{pg_version} ge '9.1.0') {
         $self->{dbh}->do(<<'EOF');
-create extension if not exists plv8;
-create extension if not exists plls;
+DO $$ BEGIN
+    CREATE EXTENSION IF NOT EXISTS plv8;
+EXCEPTION WHEN OTHERS THEN END; $$;
+DO $$ BEGIN
+    CREATE EXTENSION IF NOT EXISTS plls;
+EXCEPTION WHEN OTHERS THEN END; $$;
 EOF
     }
     else {
