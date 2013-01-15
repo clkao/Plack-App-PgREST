@@ -64,11 +64,9 @@ method _mk_func($name, $param, $ret, $body, $lang, $dont_compile) {
 #    $body = ($self->{pg_version} lt '9.2.0')
 #        ? "JSON.stringify(($compiled)(@{[ join(',', map { qq!JSON.parse($_)! } @args) ]}));"
 #        : "($compiled)(@{[ join(',', @args) ]})";
-    my $ret = qq{CREATE OR REPLACE FUNCTION $name (@{[ join(',', @params) ]}) RETURNS $ret AS \$\$
+    qq{CREATE OR REPLACE FUNCTION $name (@{[ join(',', @params) ]}) RETURNS $ret AS \$\$
 return $body
 \$\$ LANGUAGE $lang IMMUTABLE STRICT;};
-    warn $ret;
-    $ret;
 }
 
 method bootstrap {
@@ -213,8 +211,6 @@ END
 }
 
 method to_app {
-    warn $self->can('to_app');
-    warn $self->{dsn};
     unless ($self->{dbh}) {
         require DBIx::Connector;
         $self->{conn} = DBIx::Connector->new($self->{dsn}, '', '', {
