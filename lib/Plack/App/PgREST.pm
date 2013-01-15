@@ -167,24 +167,25 @@ cond = (model, spec) -> switch typeof spec
     | \string => qq spec
     | \object =>
         # Implicit AND on all k,v
-        [ test model, qq(k), v for k, v of spec ] * "AND"
+        ([ test model, qq(k), v for k, v of spec ].reduce (+++)) * " AND "
     | _ => it
 
 test = (model, key, expr) -> switch typeof expr
-    | <[ number boolean ]> => "(#key = #expr)"
-    | \string => "(#key = #{ q expr })"
-    | \object => for op, ref of expr
-        switch op
+    | <[ number boolean ]> => ["(#key = #expr)"]
+    | \string => ["(#key = #{ q expr })"]
+    | \object =>
+        for op, ref of expr
+            switch op
             | \$lt =>
                 res = evaluate model, ref
-                return "(#key < #res)"
+                "(#key < #res)"
             | \$gt =>
                 res = evaluate model, ref
-                return "(#key > #res)"
+                "(#key > #res)"
             | \$ =>
-                return "#key = #model-table.#{ qq ref }" where model-table = qq "#{model}s"
+                "#key = #model-table.#{ qq ref }" where model-table = qq "#{model}s"
             | _ => throw "Unknown operator: #op"
-    | \undefined => true
+    | \undefined => [true]
 
 evaluate = (model, ref) -> switch typeof ref
     | <[ number boolean ]> => "#ref"
