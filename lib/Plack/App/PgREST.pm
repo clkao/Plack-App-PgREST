@@ -7,8 +7,16 @@ use Router::Resource;
 use parent qw(Plack::Component);
 use Plack::Util::Accessor qw( dsn dbh pg_version );
 use Plack::Request;
-use JSON qw(encode_json decode_json);
 use IPC::Run3 qw(run3);
+use JSON::PP qw(encode_json decode_json);
+
+# maintain json object field order
+use Tie::IxHash;
+my $obj_parser_sub = \&JSON::PP::object;
+*JSON::PP::object = sub {
+	tie my %obj, 'Tie::IxHash';
+	$obj_parser_sub->(\%obj);
+};
 
 sub n {
     my $n = shift;
@@ -24,6 +32,7 @@ method select($param, $args) {
         l => n($param->get('l')),
         sk => n($param->get('sk')),
         c => n($param->get('c')),
+        s => decode_json($param->get('s') || undef),
         q => decode_json($param->get('q') || undef),
     });
     my $ary_ref = $self->{dbh}->selectall_arrayref("select postgrest_select(?)", {}, $req);
@@ -189,17 +198,22 @@ test = (model, key, expr) -> switch typeof expr
 
 evaluate = (model, ref) -> switch typeof ref
     | <[ number boolean ]> => "#ref"
-    | \string => q #ref
+    | \string => q ref
     | \object => for op, v of ref => switch op
         | \$ => "#model-table.#{ qq v }" where model-table = qq "#{model}s"
         | \$ago => "'now'::timestamptz - #{ q "#v ms" }::interval"
         | _ => continue
 
+order-by = (fields) ->
+    sort = for k, v of fields
+        "#{qq k} " + switch v
+        |  1 => \ASC
+        | -1 => \DESC
+        | _  => throw "unknown order type: #q #k"
+    sort * ", "
 #module.exports = exports = { walk, compile }
 
-
-
-({collection, l = 30, sk = 0, q, c, q, fo}) ->
+({collection, l = 30, sk = 0, q, c, q, s, fo}) ->
     var cond
     if q
         cond = compile collection, q
@@ -208,6 +222,7 @@ evaluate = (model, ref) -> switch typeof ref
     [{count}] = plv8.execute "select count(*) from (#query) cnt"
     return { count } if c
 
+    query += " ORDER BY " + order-by s if s
     do
         paging: { count, l, sk }
         entries: plv8.execute "#query limit $1 offset $2" [l, sk]
