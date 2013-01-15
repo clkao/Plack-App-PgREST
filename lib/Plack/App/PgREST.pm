@@ -175,6 +175,9 @@ test = (model, key, expr) -> switch typeof expr
     | \string => "(#key = #{ q expr })"
     | \object => for op, ref of expr
         switch op
+            | \$lt =>
+                res = evaluate model, ref
+                return "(#key < #res)"
             | \$gt =>
                 res = evaluate model, ref
                 return "(#key > #res)"
