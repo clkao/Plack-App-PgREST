@@ -25,6 +25,13 @@ sub n {
     return int($n);
 }
 
+sub j {
+    my $n = shift;
+    return $n unless $n;
+    return decode_json $n
+
+}
+
 method select($param, $args) {
     use Data::Dumper;
     my $req = encode_json({
@@ -32,8 +39,8 @@ method select($param, $args) {
         l => n($param->get('l')),
         sk => n($param->get('sk')),
         c => n($param->get('c')),
-        s => decode_json($param->get('s') || undef),
-        q => decode_json($param->get('q') || undef),
+        s => j($param->get('s')),
+        q => j($param->get('q')),
     });
     my $ary_ref = $self->{dbh}->selectall_arrayref("select postgrest_select(?)", {}, $req);
     if (my $callback = $param->get('callback')) {
