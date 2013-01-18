@@ -11,6 +11,13 @@ use IPC::Run3 qw(run3);
 use JSON::PP qw(encode_json decode_json);
 use File::Slurp qw(read_file);
 use File::ShareDir qw(dist_file);
+use parent qw(Exporter);
+
+our @EXPORT = qw(pgrest);
+
+sub pgrest {
+    __PACKAGE__->new( @_ > 1 ? @_ : dsn => 'dbi:Pg:'.$_[0] )->to_app;
+}
 
 # maintain json object field order
 use Tie::IxHash;
