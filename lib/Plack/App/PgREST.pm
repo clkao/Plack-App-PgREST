@@ -157,9 +157,9 @@ END
 q = -> """
     '#{ "#it".replace /'/g "''" }'
 """
-qq = -> """
-    "#{ "#it".replace /"/g '""' }"
-"""
+qq = ->
+    it.replace /\.(\d+)/g -> "[#{ parseInt(RegExp.$1) + 1}]"
+      .replace /^(\w+)/ -> "#{ RegExp.$1.replace /"/g '""' }"
 
 walk = (model, meta) ->
     return [] unless meta?[model]
