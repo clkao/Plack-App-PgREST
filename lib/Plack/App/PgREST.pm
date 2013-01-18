@@ -139,7 +139,8 @@ function (func, args) {
 }
 END
 
-    my $ls = do { local $/; open my $fh, '<', 'livescript.js'; <$fh> };
+# XXX: use File::ShareDir
+    my $ls = do { local $/; open my $fh, '<', './share/livescript.js'; <$fh> };
     $ls =~ s/\$\$/\\\$\\\$/g;
     $self->{dbh}->do($self->_mk_func("lsbootstrap", [], "pgrest_json", << "END", 'plv8'));
 function() { jsid = 0; LiveScript = $ls }
@@ -272,7 +273,7 @@ __END__
 
 =head1 NAME
 
-Plack::App::PgREST -
+Plack::App::PgREST - http://postgre.st/
 
 =head1 SYNOPSIS
 
@@ -280,11 +281,36 @@ Plack::App::PgREST -
 
 =head1 DESCRIPTION
 
-Plack::App::PgREST is
+Plack::App::PgREST is:
+
+=over
+
+=item
+
+a JSON document store
+
+=item
+
+running inside PostgreSQL
+
+=item
+
+working with existing relational data
+
+=item
+
+capable of loading Node.js modules
+
+=item
+
+compatible with MongoLab's REST API
+
+=back
 
 =head1 AUTHOR
 
 Chia-liang Kao E<lt>clkao@clkao.orgE<gt>
+Audrey Tang E<lt>audreyt@audreyt.orgE<gt>
 
 =head1 LICENSE
 
