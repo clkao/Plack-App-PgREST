@@ -81,11 +81,16 @@ method _mk_func($name, $param, $ret, $body, $lang, $dont_compile) {
 #        ? "JSON.stringify(($compiled)(@{[ join(',', map { qq!JSON.parse($_)! } @args) ]}));"
 #        : "($compiled)(@{[ join(',', @args) ]})";
     return qq<
+DO \$EOF\$ BEGIN
+
 DROP FUNCTION IF EXISTS $name (@{[ join(',', @params) ]});
+DROP FUNCTION IF EXISTS $name (@{[ join(',', map { /pgrest_json/ ? 'json' : $_ } @params) ]});
 
 CREATE FUNCTION $name (@{[ join(',', @params) ]}) RETURNS $ret AS \$\$
 return $body
 \$\$ LANGUAGE $lang IMMUTABLE STRICT;
+
+EXCEPTION WHEN OTHERS THEN END; \$EOF\$;
     >;
 }
 
