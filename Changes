@@ -1,4 +1,7 @@
 Revision history for Perl extension Plack::App::PgREST
 
+0.02  Mon Jan 18 14:30:01 2013
+        - dist cleanups
+
 0.01  Mon Jan  7 17:18:01 2013
         - original version

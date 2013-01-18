@@ -1,7 +1,7 @@
 package Plack::App::PgREST;
 use methods;
 use 5.008_001;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 use Plack::Builder;
 use Router::Resource;
 use parent qw(Plack::Component);
