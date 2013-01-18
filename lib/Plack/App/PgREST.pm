@@ -80,9 +80,13 @@ method _mk_func($name, $param, $ret, $body, $lang, $dont_compile) {
 #    $body = ($self->{pg_version} lt '9.2.0')
 #        ? "JSON.stringify(($compiled)(@{[ join(',', map { qq!JSON.parse($_)! } @args) ]}));"
 #        : "($compiled)(@{[ join(',', @args) ]})";
-    qq{CREATE OR REPLACE FUNCTION $name (@{[ join(',', @params) ]}) RETURNS $ret AS \$\$
+    return qq<
+DROP FUNCTION IF EXISTS $name (@{[ join(',', @params) ]});
+
+CREATE FUNCTION $name (@{[ join(',', @params) ]}) RETURNS $ret AS \$\$
 return $body
-\$\$ LANGUAGE $lang IMMUTABLE STRICT;};
+\$\$ LANGUAGE $lang IMMUTABLE STRICT;
+    >;
 }
 
 method bootstrap {
@@ -220,11 +224,11 @@ order-by = (fields) ->
     sort * ", "
 #module.exports = exports = { walk, compile }
 
-({collection, l = 30, sk = 0, q, c, q, s, fo}) ->
-    var cond
-    if q
-        cond = compile collection, q
-    query = "select * from #collection"
+({collection, l = 30, sk = 0, q, c, s, fo}) ->
+    cond = compile collection, q if q
+    query = "SELECT * from #collection"
+    #plv8.elog WARNING, JSON.stringify q
+    #plv8.elog WARNING, cond
     query += " WHERE #cond" if cond?
     [{count}] = plv8.execute "select count(*) from (#query) cnt"
     return { count } if c
@@ -233,6 +237,7 @@ order-by = (fields) ->
     do
         paging: { count, l, sk }
         entries: plv8.execute "#query limit $1 offset $2" [l, sk]
+        query: cond
 END
 }
 
