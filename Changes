@@ -1,5 +1,8 @@
 Revision history for Perl extension Plack::App::PgREST
 
+0.03  Mon Jan 18 15:30:01 2013
+        - install livescript to sharedir and update instructions
+
 0.02  Mon Jan 18 14:30:01 2013
         - dist cleanups
 
