@@ -26,3 +26,4 @@ xt/release/perlcritic.t
 xt/release/pod.t
 xt/release/podspell.t
 xt/release/synopsis.t
+share/livescript.js

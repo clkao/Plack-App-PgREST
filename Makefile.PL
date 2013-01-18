@@ -4,6 +4,7 @@ name 'Plack-App-PgREST';
 all_from 'lib/Plack/App/PgREST.pm';
 readme_from 'lib/Plack/App/PgREST.pm';
 build_requires 'Test::More' => 0.88;
+install_share dist => 'share';
 
 requires 'methods';
 requires 'Router::Resource';
