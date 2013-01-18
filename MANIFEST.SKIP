@@ -12,3 +12,6 @@
 \.gz$
 \.cvsignore
 \.shipit
+\.swp$
+MYMETA.json
+MYMETA.yml

@@ -1,14 +1,24 @@
 NAME
-    Plack::App::PgREST -
+    Plack::App::PgREST - http://postgre.st/
 
 SYNOPSIS
       use Plack::App::PgREST;
 
 DESCRIPTION
-    Plack::App::PgREST is
+    Plack::App::PgREST is:
+
+    *   a JSON document store
+
+    *   running inside PostgreSQL
+
+    *   working with existing relational data
+
+    *   capable of loading Node.js modules
+
+    *   compatible with MongoLab's REST API
 
 AUTHOR
-    Chia-liang Kao <clkao@clkao.org>
+    Chia-liang Kao <clkao@clkao.org> Audrey Tang <audreyt@audreyt.org>
 
 LICENSE
     This library is free software; you can redistribute it and/or modify it
