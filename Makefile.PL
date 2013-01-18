@@ -11,6 +11,7 @@ requires 'Plack';
 requires 'JSON::XS';
 requires 'DBIx::Connector';
 requires 'IPC::Run3';
+requires 'Tie::IxHash';
 
 auto_include_deps;
 extra_tests;
