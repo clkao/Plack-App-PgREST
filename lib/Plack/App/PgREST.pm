@@ -45,13 +45,13 @@ method select($param, $args) {
     my $ary_ref = $self->{dbh}->selectall_arrayref("select postgrest_select(?)", {}, $req);
     if (my $callback = $param->get('callback')) {
         $callback =~ s/[^\w\[\]\.]//g;
-        return [200, ['Content-Type', 'application/javascript'],
+        return [200, ['Content-Type', 'application/javascript; charset=UTF-8'],
             [
                 ";($callback)($ary_ref->[0][0]);"
             ]
         ];
     }
-    return [200, ['Content-Type', 'application/json'], [$ary_ref->[0][0]]];
+    return [200, ['Content-Type', 'application/json; charset=UTF-8'], [$ary_ref->[0][0]]];
 }
 
 method _mk_func($name, $param, $ret, $body, $lang, $dont_compile) {
