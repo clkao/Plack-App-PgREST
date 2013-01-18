@@ -293,7 +293,8 @@ Plack::App::PgREST - http://postgre.st/
 
 =head1 SYNOPSIS
 
-  use Plack::App::PgREST;
+  # install plv8 extension for pg first
+  plackup -MPlack::App::PgREST -e 'pgrest q{db=MYDB}'
 
 =head1 DESCRIPTION
 
@@ -320,6 +321,30 @@ capable of loading Node.js modules
 =item
 
 compatible with MongoLab's REST API
+
+=back
+
+=head1 INSTALL
+
+=over
+
+=item
+
+Install pgxn:
+
+  sudo easy_install pgxnclient
+
+=item
+
+Install libv8 (for older distro (lucid, natty): sudo add-apt-repository ppa:martinkl/ppa)
+
+  sudo apt-get install libv8-dev
+
+=item
+
+Install plv8 pgxn:
+
+  sudo pgxn install plv8
 
 =back
 
