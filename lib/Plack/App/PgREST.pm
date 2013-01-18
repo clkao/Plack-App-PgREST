@@ -197,7 +197,7 @@ cond = (model, spec) -> switch typeof spec
     | \string => qq spec
     | \object =>
         # Implicit AND on all k,v
-        ([ test model, qq(k), v for k, v of spec ].reduce (+++)) * " AND "
+        ([ test model, qq(k), v for k, v of spec ].reduce (++)) * " AND "
     | _ => it
 
 test = (model, key, expr) -> switch typeof expr
