@@ -10,6 +10,7 @@ requires 'Router::Resource';
 requires 'Plack';
 requires 'JSON::XS';
 requires 'DBIx::Connector';
+requires 'DBD::Pg';
 requires 'IPC::Run3';
 requires 'Tie::IxHash';
 
