@@ -15,6 +15,7 @@ requires 'DBD::Pg';
 requires 'IPC::Run3';
 requires 'Tie::IxHash';
 requires 'File::ShareDir';
+requires 'File::Slurp';
 
 auto_include_deps;
 extra_tests;
