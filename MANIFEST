@@ -21,6 +21,7 @@ META.yml
 README
 share/livescript.js
 t/00_compile.t
+t/01_basic.t
 xt/release/perlcritic.t
 xt/release/pod.t
 xt/release/podspell.t
