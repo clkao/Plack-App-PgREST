@@ -1,7 +1,7 @@
 package Plack::App::PgREST;
+use strict;
 use methods;
 use 5.008_001;
-our $VERSION = '0.03';
 use Plack::Builder;
 use Router::Resource;
 use parent qw(Plack::Component);
@@ -13,6 +13,7 @@ use File::Slurp qw(read_file);
 use File::ShareDir qw(dist_file);
 use parent qw(Exporter);
 
+our $VERSION = '0.04';
 our @EXPORT = qw(pgrest);
 
 sub pgrest {
@@ -30,7 +31,7 @@ my $obj_parser_sub = \&JSON::PP::object;
 sub n {
     my $n = shift;
     return $n unless $n;
-    return undef if $n eq 'NaN';
+    return (undef) if $n eq 'NaN';
     return int($n);
 }
 
@@ -80,7 +81,7 @@ method _mk_func($name, $param, $ret, $body, $lang, $dont_compile) {
     if ($lang eq 'plls' && !$dont_compile) {
         $lang = 'plv8';
 
-        $compiled = $self->{dbh}->selectall_arrayref("select jsapply(?,?)", {}, "LiveScript.compile", encode_json([$body, {bare =>  true}]))->[0][0];
+        $compiled = $self->{dbh}->selectall_arrayref("select jsapply(?,?)", {}, "LiveScript.compile", encode_json([$body, {bare => 1}]))->[0][0];
         $compiled =~ s/;$//;
     }
 
