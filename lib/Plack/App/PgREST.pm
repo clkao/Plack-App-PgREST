@@ -95,7 +95,6 @@ SET client_min_messages TO WARNING;
 DO \$PGREST_EOF\$ BEGIN
 
 DROP FUNCTION IF EXISTS $name (@{[ join(',', @params) ]});
-DROP FUNCTION IF EXISTS $name (@{[ join(',', map { /pgrest_json/ ? 'json' : $_ } @params) ]});
 
 CREATE FUNCTION $name (@{[ join(',', @params) ]}) RETURNS $ret AS \$PGREST_$name\$
 return $body
