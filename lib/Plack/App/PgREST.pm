@@ -13,7 +13,7 @@ use File::Slurp qw(read_file);
 use File::ShareDir qw(dist_file);
 use parent qw(Exporter);
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 our @EXPORT = qw(pgrest);
 
 sub pgrest {

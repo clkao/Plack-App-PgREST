@@ -1,5 +1,9 @@
 Revision history for Perl extension Plack::App::PgREST
 
+
+0.05  Tue Feb  5 20:31:49 CST 2013
+        - postgres 9.0 compatibility
+
 0.04  Fri Feb  1 22:57:40 CST 2013
         - fix missing deps
 
