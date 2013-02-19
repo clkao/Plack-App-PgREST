@@ -100,7 +100,14 @@ Plack::App::PgREST - http://postgre.st/
 =head1 SYNOPSIS
 
   # install plv8 extension for pg first
-  plackup -MPlack::App::PgREST -e 'pgrest q{db=MYDB}'
+
+  # install pgrest with npm
+  % npm i pgrest
+  # bootstrap
+  % node -e 'require("pgrest").new("tcp://localhost/MYDB")'
+
+  # start the server
+  % plackup -MPlack::App::PgREST -e 'pgrest q{db=MYDB}'
 
 =head1 DESCRIPTION
 
