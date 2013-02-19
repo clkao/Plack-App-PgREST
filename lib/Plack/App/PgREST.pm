@@ -5,12 +5,9 @@ use 5.008_001;
 use Plack::Builder;
 use Router::Resource;
 use parent qw(Plack::Component);
-use Plack::Util::Accessor qw( dsn dbh pg_version );
+use Plack::Util::Accessor qw( dsn dbh);
 use Plack::Request;
-use IPC::Run3 qw(run3);
 use JSON::PP qw(encode_json decode_json);
-use File::Slurp qw(read_file);
-use File::ShareDir qw(dist_file);
 use parent qw(Exporter);
 
 our $VERSION = '0.05';
@@ -52,7 +49,7 @@ method select($param, $args) {
         s => j($param->get('s')),
         q => j($param->get('q')),
     });
-    my $ary_ref = $self->{dbh}->selectall_arrayref("select postgrest_select(?)", {}, $req);
+    my $ary_ref = $self->{dbh}->selectall_arrayref("select pgrest_select(?)", {}, $req);
     if (my $callback = $param->get('callback')) {
         $callback =~ s/[^\w\[\]\.]//g;
         return [200, ['Content-Type', 'application/javascript; charset=UTF-8'],
@@ -64,211 +61,7 @@ method select($param, $args) {
     return [200, ['Content-Type', 'application/json; charset=UTF-8'], [$ary_ref->[0][0]]];
 }
 
-method _mk_func($name, $param, $ret, $body, $lang, $dont_compile) {
-    my (@params, @args);
-    $lang ||= 'plv8';
-    while( my ($name, $type) = splice(@$param, 0, 2) ) {
-        push @params, "$name $type";
-        if ($type eq 'pgrest_json') {
-            push @args, "JSON.parse($name)"
-        }
-        else {
-            push @args, $name;
-        }
-    }
-
-    my $compiled = '';
-    if ($lang eq 'plls' && !$dont_compile) {
-        $lang = 'plv8';
-
-        $compiled = $self->{dbh}->selectall_arrayref("select jsapply(?,?)", {}, "LiveScript.compile", encode_json([$body, {bare => 1}]))->[0][0];
-        $compiled =~ s/;$//;
-    }
-
-    $compiled ||= $body;
-    $body = "JSON.stringify((eval($compiled))(@{[ join(',', @args) ]}));";
-#    $body = ($self->{pg_version} lt '9.2.0')
-#        ? "JSON.stringify(($compiled)(@{[ join(',', map { qq!JSON.parse($_)! } @args) ]}));"
-#        : "($compiled)(@{[ join(',', @args) ]})";
-    return qq<
-SET client_min_messages TO WARNING;
-DO \$PGREST_EOF\$ BEGIN
-
-DROP FUNCTION IF EXISTS $name (@{[ join(',', @params) ]});
-
-CREATE FUNCTION $name (@{[ join(',', @params) ]}) RETURNS $ret AS \$PGREST_$name\$
-return $body
-\$PGREST_$name\$ LANGUAGE $lang IMMUTABLE STRICT;
-
-EXCEPTION WHEN OTHERS THEN END; \$PGREST_EOF\$;
-    >;
-}
-
 method bootstrap {
-
-    ($self->{pg_version}) = $self->{dbh}->selectall_arrayref("select version()")->[0][0] =~ m/PostgreSQL ([\d\.]+)/;
-    if ($self->{pg_version} ge '9.1.0') {
-        $self->{dbh}->do(<<'EOF');
-SET client_min_messages TO WARNING;
-DO $$ BEGIN
-    CREATE EXTENSION IF NOT EXISTS plv8;
-EXCEPTION WHEN OTHERS THEN END; $$;
-DO $$ BEGIN
-    CREATE EXTENSION IF NOT EXISTS plls;
-EXCEPTION WHEN OTHERS THEN END; $$;
-EOF
-    }
-    else {
-        # bootstrap with sql
-        
-        my $dir = `pg_config --sharedir`;
-        chomp $dir;
-        use File::Glob qw(bsd_glob);
-        my @init_files = sort { $b cmp $a } bsd_glob("$dir/contrib/plv8*.sql");
-        if (@init_files > 1) {
-            warn "==> more than one version of plv8 found: ".join(',',@init_files);
-        }
-
-        eval {
-            $self->{dbh}->do(scalar read_file($init_files[0]));
-        };
-
-        $self->{dbh}->do('rollback') if $self->{dbh}->err;
-    }
-    
-    
-    if ($self->{pg_version} lt '9.2.0') {
-        $self->{dbh}->do(<<'EOF');
-SET client_min_messages TO WARNING;
-DO $$ BEGIN
-    CREATE FUNCTION json_syntax_check(src text) RETURNS boolean AS '
-        try { JSON.parse(src); return true; } catch (e) { return false; }
-    ' LANGUAGE plv8 IMMUTABLE;
-EXCEPTION WHEN OTHERS THEN END; $$;
-
-DO $$ BEGIN
-    CREATE DOMAIN pgrest_json AS text CHECK ( json_syntax_check(VALUE) );
-EXCEPTION WHEN OTHERS THEN END; $$;
-EOF
-    }
-    else {
-        $self->{dbh}->do(<<'EOF');
-SET client_min_messages TO WARNING;
-DO $$ BEGIN
-    CREATE DOMAIN pgrest_json AS json;
-EXCEPTION WHEN OTHERS THEN END; $$;
-EOF
-    }
-
-    $self->{dbh}->do($self->_mk_func("jseval", [str => "text"], "text", << 'END', 'plv8'));
-function(str) { return eval(str) }
-END
-
-    $self->{dbh}->do($self->_mk_func("jsapply", [str => "text", "args" => "pgrest_json"], "pgrest_json", << 'END', 'plv8'));
-function (func, args) {
-    return eval(func).apply(null, args);
-}
-END
-
-    my $ls = read_file( dist_file('Plack-App-PgREST',  'livescript.js') );
-    $self->{dbh}->do($self->_mk_func("lsbootstrap", [], "pgrest_json", << "END", 'plv8'));
-function() { jsid = 0; LiveScript = $ls }
-END
-    $self->{dbh}->do("select lsbootstrap()");
-
-    $self->{dbh}->do($self->_mk_func("jsevalit", [str => "text"], "text", << 'END', 'plls'));
-(str) ->
-    ``jsid = jsid || 0; ++jsid;``
-    eval "jsid#jsid = " + str; "jsid#jsid"
-END
-
-    $self->{dbh}->do($self->_mk_func("postgrest_select", [req => "pgrest_json"], "pgrest_json", << 'END', 'plls'));
-
-q = -> """
-    '#{ "#it".replace /'/g "''" }'
-"""
-qq = ->
-    it.replace /\.(\d+)/g -> "[#{ parseInt(RegExp.$1) + 1}]"
-      .replace /^(\w+)/ -> "#{ RegExp.$1.replace /"/g '""' }"
-
-walk = (model, meta) ->
-    return [] unless meta?[model]
-    for col, spec of meta[model]
-        [compile(model, spec), col]
-
-compile = (model, field) ->
-    {$query, $from, $and, $} = field ? {}
-    switch
-    | $from? => """
-        (SELECT COALESCE(ARRAY_TO_JSON(ARRAY_AGG(_)), '[]') FROM (SELECT * FROM #from-table
-            WHERE #{ qq "_#model" } = #model-table."_id" AND #{
-                switch
-                | $query?                   => cond model, $query
-                | _                         => true
-            }
-        ) AS _)
-    """ where from-table = qq "#{$from}s", model-table = qq "#{model}s"
-    | $? => cond model, $
-    | typeof field is \object => cond model, field
-    | _ => field
-
-cond = (model, spec) -> switch typeof spec
-    | \number => spec
-    | \string => qq spec
-    | \object =>
-        # Implicit AND on all k,v
-        ([ test model, qq(k), v for k, v of spec ].reduce (++)) * " AND "
-    | _ => it
-
-test = (model, key, expr) -> switch typeof expr
-    | <[ number boolean ]> => ["(#key = #expr)"]
-    | \string => ["(#key = #{ q expr })"]
-    | \object =>
-        for op, ref of expr
-            switch op
-            | \$lt =>
-                res = evaluate model, ref
-                "(#key < #res)"
-            | \$gt =>
-                res = evaluate model, ref
-                "(#key > #res)"
-            | \$ =>
-                "#key = #model-table.#{ qq ref }" where model-table = qq "#{model}s"
-            | _ => throw "Unknown operator: #op"
-    | \undefined => [true]
-
-evaluate = (model, ref) -> switch typeof ref
-    | <[ number boolean ]> => "#ref"
-    | \string => q ref
-    | \object => for op, v of ref => switch op
-        | \$ => "#model-table.#{ qq v }" where model-table = qq "#{model}s"
-        | \$ago => "'now'::timestamptz - #{ q "#v ms" }::interval"
-        | _ => continue
-
-order-by = (fields) ->
-    sort = for k, v of fields
-        "#{qq k} " + switch v
-        |  1 => \ASC
-        | -1 => \DESC
-        | _  => throw "unknown order type: #q #k"
-    sort * ", "
-#module.exports = exports = { walk, compile }
-
-({collection, l = 30, sk = 0, q, c, s, fo}) ->
-    cond = compile collection, q if q
-    query = "SELECT * from #collection"
-    #plv8.elog WARNING, JSON.stringify q
-    #plv8.elog WARNING, cond
-    query += " WHERE #cond" if cond?
-    [{count}] = plv8.execute "select count(*) from (#query) cnt"
-    return { count } if c
-
-    query += " ORDER BY " + order-by s if s
-    do
-        paging: { count, l, sk }
-        entries: plv8.execute "#query limit $1 offset $2" [l, sk]
-        query: cond
-END
 }
 
 method to_app {
