@@ -20,7 +20,6 @@ Makefile.PL
 MANIFEST
 META.yml
 README
-share/livescript.js
 t/00_compile.t
 t/01_basic.t
 xt/release/perlcritic.t

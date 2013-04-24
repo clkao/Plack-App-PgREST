@@ -1,6 +1,9 @@
 Revision history for Perl extension Plack::App::PgREST
 
 
+0.06 Wed Apr 24 13:29:42 CST 2013
+        - use plv8x-based pgrest
+
 0.05  Tue Feb  5 20:31:49 CST 2013
         - postgres 9.0 compatibility
 

@@ -10,7 +10,7 @@ use Plack::Request;
 use JSON::PP qw(encode_json decode_json);
 use parent qw(Exporter);
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 our @EXPORT = qw(pgrest);
 
 sub pgrest {
