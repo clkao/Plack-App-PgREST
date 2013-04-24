@@ -62,6 +62,7 @@ method select($param, $args) {
 }
 
 method bootstrap {
+  $self->{dbh}->do("select pgrest_boot('{}')");
 }
 
 method to_app {
@@ -104,7 +105,7 @@ Plack::App::PgREST - http://postgre.st/
   # install pgrest with npm
   % npm i pgrest
   # bootstrap
-  % node -e 'require("pgrest").new("tcp://localhost/MYDB")'
+  % pgrest --db MYDB --boot
 
   # start the server
   % plackup -MPlack::App::PgREST -e 'pgrest q{db=MYDB}'
